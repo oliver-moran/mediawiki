@@ -1,0 +1,21 @@
+{
+  "name": "mediawiki",
+  "version": "0.0.1",
+  "description": "A MediaWiki module for Node.js",
+  "main": "mediawiki.js",
+  "keywords": [
+    "wikimedia",
+    "bot",
+    "library",
+    "api"
+  ],
+  "author": "Oliver Moran <oliver.moran@gmail.com>",
+  "license": "GPL",
+  "dependencies": {
+    "request": "~2.34.0"
+  },
+  "bugs": {
+    "url": "https://github.com/oliver-moran/mediawiki/issues"
+  },
+  "homepage": "https://github.com/oliver-moran/mediawiki"
+}
