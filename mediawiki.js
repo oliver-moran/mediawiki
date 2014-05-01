@@ -35,7 +35,7 @@ var MediaWiki = {};
     /** GLOBAL VARIABLES **/
 
     // module version number (used in User-Agent)
-    var version = "0.0.0";
+    var version = "0.0.4";
 
     // module home page (used in User-Agent)
     var homepage = "https://github.com/oliver-moran/mediawiki";
@@ -53,6 +53,19 @@ var MediaWiki = {};
     var inProcess = false;
 
     /** CONSTRUCTOR AND SETTINGS **/
+    
+    function Promise(){
+    }
+    Promise.prototype.onComplete = function () { /* all is good */ };
+    Promise.prototype.onError = function (err) { throw err; };
+    Promise.prototype.complete = function(callback){
+        this.onComplete = callback;
+        return this;
+    };
+    Promise.prototype.error = function(callback){
+        this.onError = callback;
+        return this;
+    };
 
     /**
      * The Bot constructor
@@ -85,39 +98,36 @@ var MediaWiki = {};
     /**
      * Makes a GET request
      * @param args the arguments to pass to the WikiMedia API
-     * @param callback (optional) a function to call on response
      * @param isPriority (optional) a boolean, if true the request 
      * will be added to the front of the request queue
      */
-    Bot.prototype.get = function (args, callback, isPriority) {
-        if (typeof callback == "boolean") {
-            isPriority = callback;
-            callback = null;
-        }
-        _queueRequest.call(this, args, "GET", callback, isPriority)
+    Bot.prototype.get = function (args, isPriority) {
+        return _request.call(this, args, isPriority, "GET");
     };
 
     /**
      * Makes a POST request
      * @param args the arguments to pass to the WikiMedia API
-     * @param callback (optional) a function to call on response
      * @param isPriority (optional) a boolean, if true the request 
      * will be added to the front of the request queue
      */
-    Bot.prototype.post = function (args, callback, isPriority) {
-        if (typeof callback == "boolean") {
-            isPriority = callback;
-            callback = null;
-        }
-        _queueRequest.call(this, args, "POST", callback, isPriority)
+    Bot.prototype.post = function (args, isPriority) {
+        return _request.call(this, args, isPriority, "POST");
     };
+    
+    // does the work of Bot.prototype.get and Bot.prototype.post
+    function _request(args, isPriority, method) {
+        var promise = new Promise();
+        _queueRequest.call(this, args, method, isPriority, promise);
+        return promise;
+    }
 
     // queues requests, throttled by Bot.prototype.settings.rate
-    function _queueRequest(args, method, callback, isPriority){
+    function _queueRequest(args, method, isPriority, promise){
         if (isPriority) {
-            queue.unshift([args, method, callback])
+            queue.unshift([args, method, promise])
         } else {
-            queue.push([args, method, callback])
+            queue.push([args, method, promise])
         }
         _processQueue.call(this);
     }
@@ -140,11 +150,11 @@ var MediaWiki = {};
     }
 
     // makes a request, regardless of type under Node
-    function _makeRequest(args, method, callback) {
+    function _makeRequest(args, method, promise) {
         args.format = "json"; // we will always expect JSON
 
         if (useXMLHttpRequest) {
-            _makeXMLHttpRequestRequest.call(this, args, method, callback);
+            _makeXMLHttpRequestRequest.call(this, args, method, promise);
             return;
         }
 
@@ -161,13 +171,17 @@ var MediaWiki = {};
 
         var _this = this;
         Request.get(options, function (error, response, body) {
-            _processResponse.call(_this, error, response, body, callback);
+            if (!error && response.statusCode == 200) {
+                _processResponse.call(_this, body, promise);
+            } else {
+                promise.onError.call(_this, new Error(response.statusCode));
+            }
         });
 
     }
 
     // makes a request, regardless of type using XMLHttpRequest
-    function _makeXMLHttpRequestRequest(args, method, callback) {
+    function _makeXMLHttpRequestRequest(args, method, promise) {
         var params = _serialize(args);
         var uri = this.settings.endpoint + "?" + params;
         
@@ -176,8 +190,11 @@ var MediaWiki = {};
         var request = new XMLHttpRequest();
         request.onreadystatechange = function() {
             if (request.readyState == 4) {
-                //console.log(request.responseText);
-                _processResponse.call(_this, (request.status != 200), { statusCode: request.status }, request.responseText, callback);
+                if (request.status == 200) {
+                    _processResponse.call(_this, request.responseText, promise);
+                } else {
+                    promise.onError.call(_this, new Error(request.status));
+                }
             }
         }
         request.open(method.toUpperCase(), uri);
@@ -185,6 +202,7 @@ var MediaWiki = {};
         request.send(params);
     }
 
+    // make a key-value string from a JavaScript Object
     function _serialize(obj) {
         var query = [];
         var props = Object.getOwnPropertyNames(obj);
@@ -194,35 +212,23 @@ var MediaWiki = {};
         return query.join("&");
     }
 
-
-
     // process an API response
-    function _processResponse(error, response, body, callback) {
-        if (!error && response.statusCode == 200) {
-            var data = {};
-            try {
-                data = JSON.parse(body);
-            } catch (err) {
-                console.error("Err:" + err);
-            }
-            _callback.call(this, callback, [data]);
-
-            future = (new Date()).getTime() + this.settings.rate;
-            inProcess = false;
-            _processQueue.call(this);
+    function _processResponse(body, promise) {
+        var data = {};
+        try {
+            data = JSON.parse(body);
+        } catch (err) {
+            promise.onError.call(this, err);
         }
+        promise.onComplete.call(this, data);
+
+        future = (new Date()).getTime() + this.settings.rate;
+        inProcess = false;
+        _processQueue.call(this);
     }
 
-    // performs a (safe) scoped callback
-    function _callback(callback, arguments){
-        if (typeof callback == "function") {
-            callback.apply(this, arguments);
-        }
-    }
-
-
+    
     /** SPECIFIC REQUEST FUNCTIONS **/
-
 
     /**
      * Log in to the Wiki
@@ -231,21 +237,33 @@ var MediaWiki = {};
      * @param callback a function to call on completion
      */
     Bot.prototype.login = function (username, password, callback) {
-        this.post({ action: "login", lgname: username, lgpassword: password }, function (body) {
-            if (body.login.result == "Success") {
-                _callback.call(this, callback, [body.login.result, body.login.lgusername]);
-            } else if (body.login.result == "NeedToken") {
-                this.post({ action: "login", lgname: username, lgpassword: password, lgtoken: body.login.token }, function (body) {
-                    if (body.login.result == "Success") {
-                        _callback.call(this, callback, [body.login.result, body.login.lgusername]);
-                    } else {
-                        _callback.call(this, callback, [body.login.result]);
-                    }
-                }, true);
-            } else {
-                _callback.call(this, callback, [body.login.result]);
+        var promise = new Promise();
+        
+        this.post({ action: "login", lgname: username, lgpassword: password }).complete(function (data) {
+            switch (data.login.result) {
+                case "Success":
+                    promise.onComplete.call(this, data.login.lgusername);
+                    break;
+                case "NeedToken":
+                    this.post({ action: "login", lgname: username, lgpassword: password, lgtoken: data.login.token }, true).complete(function (data) {
+                        if (data.login.result == "Success") {
+                            promise.onComplete.call(this, data.login.lgusername);
+                        } else {
+                            promise.onError.call(this, new Error(data.login.result));
+                        }
+                    }).error(function (err) {
+                        promise.onError.call(this, err);
+                    });
+                    break;
+                default:
+                    promise.onError.call(this, new Error(data.login.result));
+                    break;
             }
+        }).error(function (err) {
+            promise.onError.call(this, err);
         });
+        
+        return promise;
     };
 
     /**
@@ -253,20 +271,32 @@ var MediaWiki = {};
      * @param callback a function to call on completion
      */
     Bot.prototype.logout = function (callback) {
+        var promise = new Promise();
+        
         // post to MAKE SURE it always happens
-        this.get({ action: "logout" }, function (body) {
-            _callback.call(this, callback);
+        this.post({ action: "logout" }).complete(function () {
+            promise.onComplete.call(this);
+        }).error(function (err) {
+            promise.onError.call(this, err);
         });
+        
+        return promise;
     };
 
     /**
      * Requests the current user name
      * @param callback a function to call, passes the user name (or IP) if successful
      */
-    Bot.prototype.name = function (callback) {
-        this.userinfo(function (userinfo) {
-            _callback.call(this, callback, [userinfo.name]);
+    Bot.prototype.name = function () {
+        var promise = new Promise();
+        
+        this.userinfo().complete(function (userinfo) {
+            promise.onComplete.call(this, userinfo.name);
+        }).error(function (err) {
+            promise.onError.call(this, err);
         });
+        
+        return promise;
     };
 
     // a duplicate reference for tradition's sake
@@ -277,9 +307,15 @@ var MediaWiki = {};
      * @param callback a function to call, passes a userinfo object if successful
      */
     Bot.prototype.userinfo = function (callback) {
-        this.get({ action: "query", meta: "userinfo" }, function (body) {
-            _callback.call(this, callback, [body.query.userinfo]);
+        var promise = new Promise();
+        
+        this.get({ action: "query", meta: "userinfo" }).complete(function (data) {
+            promise.onComplete.call(this, data.query.userinfo);
+        }).error(function (err) {
+            promise.onError.call(this, err);
         });
+        
+        return promise;
     };
     
     /**
@@ -287,8 +323,8 @@ var MediaWiki = {};
      * @param the title of the page
      * @param the callback
      */
-    Bot.prototype.page = function (title, callback) {
-        _page.call(this, { titles: title }, callback);
+    Bot.prototype.page = function (title) {
+        return _page.call(this, { titles: title });
     };
 
     /**
@@ -296,24 +332,30 @@ var MediaWiki = {};
      * @param the revision ID of the page
      * @param the callback
      */
-    Bot.prototype.revision = function (id, callback) {
-        _page.call(this, { revids: id }, callback);
+    Bot.prototype.revision = function (id) {
+        return _page.call(this, { revids: id });
     };
     
     // does the work of Bot.prototype.page and Bot.prototype.revision
     // and ensures both functions return the same things
-    function _page(query, callback) {
+    function _page(query) {
+        var promise = new Promise();
+        
         query.action = "query";
         query.prop = "revisions";
         query.rvprop = "timestamp|content";
         
-        this.get(query, function (body) {
-            var pages = Object.getOwnPropertyNames(body.query.pages);
+        this.get(query).complete(function (data) {
+            var pages = Object.getOwnPropertyNames(data.query.pages);
             pages.forEach(function (id) {
-                var page = body.query.pages[id];
-                _callback.call(this, callback, [page.title, page.revisions[0]["*"], new Date(page.revisions[0].timestamp)]);
+                var page = data.query.pages[id];
+                promise.onComplete.call(this, page.title, page.revisions[0]["*"], new Date(page.revisions[0].timestamp));
             });
+        }).error(function (err) {
+            promise.onError.call(this, err);
         });
+        
+        return promise;
     }
 
     /**
@@ -323,18 +365,24 @@ var MediaWiki = {};
      * @param the callback
      */
     Bot.prototype.history = function (title, count, callback) {
-        this.get({ action: "query", prop: "revisions", titles: title, rvprop: "timestamp|user|ids|comment|size|tags", rvlimit: count }, function (body) {
-            var pages = Object.getOwnPropertyNames(body.query.pages);
+        var promise = new Promise();
+        
+        this.get({ action: "query", prop: "revisions", titles: title, rvprop: "timestamp|user|ids|comment|size|tags", rvlimit: count }).complete(function (data) {
+            var pages = Object.getOwnPropertyNames(data.query.pages);
             pages.forEach(function (id) {
-                var page = body.query.pages[id];
+                var page = data.query.pages[id];
                 var history = [];
                 page.revisions.forEach(function (revision) {
                     revision.timestamp = new Date(revision.timestamp);
                     history.push(revision);
                 });
-                _callback.call(this, callback, [page.title, history]);
+                promise.onComplete.call(this, page.title, history);
             });
+        }).error(function (err) {
+            promise.onError.call(this, err);
         });
+        
+        return promise;
     };
 
     // TODO: edit a page
