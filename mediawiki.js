@@ -1,5 +1,5 @@
 /*
-    Mediawiki API JavaScript
+    A Mediawiki API JavaScript framework
     Copyright (C) 2014 Oliver Moran <oliver.moran@gmail.com>
 
     This program is free software: you can redistribute it and/or modify
@@ -9,20 +9,19 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
-
-
-/** NODE MODULES **/
 
 var MediaWiki = {};
 
 (function (MediaWiki) {
-    
+
+    /** NODE MODULES **/
+
     // first, let's determine if we can use XMLHttpRequest
     var useXMLHttpRequest = (typeof XMLHttpRequest == "undefined") ? false : true;
 
@@ -268,7 +267,7 @@ var MediaWiki = {};
         this.userinfo(function (userinfo) {
             _callback.call(this, callback, [userinfo.name]);
         });
-    }
+    };
 
     // a duplicate reference for tradition's sake
     Bot.prototype.whoami = Bot.prototype.name;
@@ -281,17 +280,77 @@ var MediaWiki = {};
         this.get({ action: "query", meta: "userinfo" }, function (body) {
             _callback.call(this, callback, [body.query.userinfo]);
         });
+    };
+    
+    /**
+     * Request the content of page by title
+     * @param the title of the page
+     * @param the callback
+     */
+    Bot.prototype.page = function (title, callback) {
+        _page.call(this, { titles: title }, callback);
+    };
+
+    /**
+     * Request the content of page by revision ID
+     * @param the revision ID of the page
+     * @param the callback
+     */
+    Bot.prototype.revision = function (id, callback) {
+        _page.call(this, { revids: id }, callback);
+    };
+    
+    // does the work of Bot.prototype.page and Bot.prototype.revision
+    // and ensures both functions return the same things
+    function _page(query, callback) {
+        query.action = "query";
+        query.prop = "revisions";
+        query.rvprop = "timestamp|content";
+        
+        this.get(query, function (body) {
+            var pages = Object.getOwnPropertyNames(body.query.pages);
+            pages.forEach(function (id) {
+                var page = body.query.pages[id];
+                _callback.call(this, callback, [page.title, page.revisions[0]["*"], new Date(page.revisions[0].timestamp)]);
+            });
+        });
     }
 
+    /**
+     * Request the history of page by title
+     * @param the title of the page
+     * @param how many revisions back to return
+     * @param the callback
+     */
+    Bot.prototype.history = function (title, count, callback) {
+        this.get({ action: "query", prop: "revisions", titles: title, rvprop: "timestamp|user|ids|comment|size|tags", rvlimit: count }, function (body) {
+            var pages = Object.getOwnPropertyNames(body.query.pages);
+            pages.forEach(function (id) {
+                var page = body.query.pages[id];
+                var history = [];
+                page.revisions.forEach(function (revision) {
+                    revision.timestamp = new Date(revision.timestamp);
+                    history.push(revision);
+                });
+                _callback.call(this, callback, [page.title, history]);
+            });
+        });
+    };
+
+    // TODO: edit a page
+    // TODO: get thes pages and categories in a category
 
     /** MODULE EXPORTS **/
 
-    if (!useXMLHttpRequest) {
-        exports.version = version;
-        exports.Bot = Bot;
-    } else {
-        MediaWiki.version = version;
-        MediaWiki.Bot = Bot;
-    }
+    MediaWiki.version = version;
+    MediaWiki.Bot = Bot;
 
+    if (typeof exports == "object") {
+        // assume we are using Require.js or similar
+        var props = Object.getOwnPropertyNames(MediaWiki);
+        props.forEach(function (prop) {
+            exports[prop] = MediaWiki[prop];
+        });
+    }
+    
 })(MediaWiki);

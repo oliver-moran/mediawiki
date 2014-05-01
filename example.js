@@ -7,6 +7,7 @@ var password = "password";
 // instantiate a bot
 var bot = new MediaWiki.Bot();
 
+
 // log in
 bot.login(user, password, function (result, user) {
     switch (result) {
@@ -35,3 +36,21 @@ bot.logout(function (name) {
 bot.userinfo(function (userinfo) {
     console.log(userinfo);
 });
+
+bot.page("Wikipedia", function(title, text, date){
+    console.log(title);
+    console.log(text.length);
+    console.log(date);
+});
+
+bot.history("Wikipedia", 10, function(title, history){
+    console.log(title);
+    console.log(history.length);
+    
+    bot.revision(history[1].revid, function(title, text, date){
+        console.log(title);
+        console.log(text.length);
+        console.log(date);
+    });
+});
+
