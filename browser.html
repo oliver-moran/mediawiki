@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>MediaWiki API JavaScript library</title>
+        <meta charset="UTF-8">
+        <script type="text/javascript" src="mediawiki.js"></script>
+    </head>
+    <body>
+        
+        <div id="who">Loading...</div>
+        
+        <script type="text/javascript">
+            
+            var bot = new MediaWiki.Bot();
+            bot.whoami().complete(function (name) {
+                document.getElementById("who").innerHTML = "You are logged in as: " + name;
+            }).error(function (err) {
+                document.getElementById("who").innerHTML = err.toString();
+            });
+        
+        </script>
+        
+        <p>Cross-domain security restrictions will probably prevent this demo from working, unless it is run from the same domain as the target MediaWiki installation.</p>
+        
+    </body>
+</html>
