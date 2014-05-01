@@ -35,7 +35,7 @@ var MediaWiki = {};
     /** GLOBAL VARIABLES **/
 
     // module version number (used in User-Agent)
-    var version = "0.0.4";
+    var version = "0.0.5";
 
     // module home page (used in User-Agent)
     var homepage = "https://github.com/oliver-moran/mediawiki";
@@ -98,8 +98,7 @@ var MediaWiki = {};
     /**
      * Makes a GET request
      * @param args the arguments to pass to the WikiMedia API
-     * @param isPriority (optional) a boolean, if true the request 
-     * will be added to the front of the request queue
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
     Bot.prototype.get = function (args, isPriority) {
         return _request.call(this, args, isPriority, "GET");
@@ -108,8 +107,7 @@ var MediaWiki = {};
     /**
      * Makes a POST request
      * @param args the arguments to pass to the WikiMedia API
-     * @param isPriority (optional) a boolean, if true the request 
-     * will be added to the front of the request queue
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
     Bot.prototype.post = function (args, isPriority) {
         return _request.call(this, args, isPriority, "POST");
@@ -124,7 +122,7 @@ var MediaWiki = {};
 
     // queues requests, throttled by Bot.prototype.settings.rate
     function _queueRequest(args, method, isPriority, promise){
-        if (isPriority) {
+        if (isPriority === true) {
             queue.unshift([args, method, promise])
         } else {
             queue.push([args, method, promise])
@@ -234,12 +232,12 @@ var MediaWiki = {};
      * Log in to the Wiki
      * @param username the user to log in as
      * @param password the password to use
-     * @param callback a function to call on completion
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
-    Bot.prototype.login = function (username, password, callback) {
+    Bot.prototype.login = function (username, password, isPriority) {
         var promise = new Promise();
         
-        this.post({ action: "login", lgname: username, lgpassword: password }).complete(function (data) {
+        this.post({ action: "login", lgname: username, lgpassword: password }, isPriority).complete(function (data) {
             switch (data.login.result) {
                 case "Success":
                     promise.onComplete.call(this, data.login.lgusername);
@@ -268,13 +266,13 @@ var MediaWiki = {};
 
     /**
      * Logs out of the Wiki
-     * @param callback a function to call on completion
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
-    Bot.prototype.logout = function (callback) {
+    Bot.prototype.logout = function (isPriority) {
         var promise = new Promise();
         
         // post to MAKE SURE it always happens
-        this.post({ action: "logout" }).complete(function () {
+        this.post({ action: "logout" }, isPriority).complete(function () {
             promise.onComplete.call(this);
         }).error(function (err) {
             promise.onError.call(this, err);
@@ -285,12 +283,12 @@ var MediaWiki = {};
 
     /**
      * Requests the current user name
-     * @param callback a function to call, passes the user name (or IP) if successful
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
-    Bot.prototype.name = function () {
+    Bot.prototype.name = function (isPriority) {
         var promise = new Promise();
         
-        this.userinfo().complete(function (userinfo) {
+        this.userinfo(isPriority).complete(function (userinfo) {
             promise.onComplete.call(this, userinfo.name);
         }).error(function (err) {
             promise.onError.call(this, err);
@@ -304,12 +302,12 @@ var MediaWiki = {};
 
     /**
      * Requests the current userinfo
-     * @param callback a function to call, passes a userinfo object if successful
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
-    Bot.prototype.userinfo = function (callback) {
+    Bot.prototype.userinfo = function (isPriority) {
         var promise = new Promise();
         
-        this.get({ action: "query", meta: "userinfo" }).complete(function (data) {
+        this.get({ action: "query", meta: "userinfo" }, isPriority).complete(function (data) {
             promise.onComplete.call(this, data.query.userinfo);
         }).error(function (err) {
             promise.onError.call(this, err);
@@ -320,32 +318,32 @@ var MediaWiki = {};
     
     /**
      * Request the content of page by title
-     * @param the title of the page
-     * @param the callback
+     * @param title the title of the page
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
-    Bot.prototype.page = function (title) {
-        return _page.call(this, { titles: title });
+    Bot.prototype.page = function (title, isPriority) {
+        return _page.call(this, { titles: title }, isPriority);
     };
 
     /**
      * Request the content of page by revision ID
      * @param the revision ID of the page
-     * @param the callback
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
-    Bot.prototype.revision = function (id) {
-        return _page.call(this, { revids: id });
+    Bot.prototype.revision = function (id, isPriority) {
+        return _page.call(this, { revids: id }, isPriority);
     };
     
     // does the work of Bot.prototype.page and Bot.prototype.revision
     // and ensures both functions return the same things
-    function _page(query) {
+    function _page(query, isPriority) {
         var promise = new Promise();
         
         query.action = "query";
         query.prop = "revisions";
         query.rvprop = "timestamp|content";
         
-        this.get(query).complete(function (data) {
+        this.get(query, isPriority).complete(function (data) {
             var pages = Object.getOwnPropertyNames(data.query.pages);
             pages.forEach(function (id) {
                 var page = data.query.pages[id];
@@ -360,14 +358,14 @@ var MediaWiki = {};
 
     /**
      * Request the history of page by title
-     * @param the title of the page
-     * @param how many revisions back to return
-     * @param the callback
+     * @param title the title of the page
+     * @param count how many revisions back to return
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
-    Bot.prototype.history = function (title, count, callback) {
+    Bot.prototype.history = function (title, count, isPriority) {
         var promise = new Promise();
         
-        this.get({ action: "query", prop: "revisions", titles: title, rvprop: "timestamp|user|ids|comment|size|tags", rvlimit: count }).complete(function (data) {
+        this.get({ action: "query", prop: "revisions", titles: title, rvprop: "timestamp|user|ids|comment|size|tags", rvlimit: count }, isPriority).complete(function (data) {
             var pages = Object.getOwnPropertyNames(data.query.pages);
             pages.forEach(function (id) {
                 var page = data.query.pages[id];
