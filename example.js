@@ -1,5 +1,5 @@
 // uncomment in Node
-// var MediaWiki = require("./mediawiki");
+var MediaWiki = require("./mediawiki");
 
 var user = "example";
 var password = "password";
@@ -7,50 +7,35 @@ var password = "password";
 // instantiate a bot
 var bot = new MediaWiki.Bot();
 
-
-// log in
-bot.login(user, password, function (result, user) {
-    switch (result) {
-        case "Success":
-            console.log("Login Successful: " + user);
-            break;
-        case "WrongPass":
-        case "NotExists":
-        default:
-            console.log("Login Failed: " + result);
-            break;
-    }
+bot.login(user, password).complete(function (user) {
+    console.log("Logged in!");
 });
 
-// get the name (or IP) of the current in user
-bot.whoami(function (name) {
-    console.log("User: " + name);
-});
-
-// log out
-bot.logout(function (name) {
-    console.log("Logged out");
-});
-
-// get the info of the current user
-bot.userinfo(function (userinfo) {
+bot.userinfo().complete(function (userinfo) {
     console.log(userinfo);
 });
 
-bot.page("Wikipedia", function(title, text, date){
+bot.logout().complete(function () {
+    console.log("Logged out");
+});
+
+bot.whoami().complete(function (name) {
+    console.log("User: " + name);
+});
+
+bot.page("Wikipedia").complete(function (title, text, date) {
     console.log(title);
     console.log(text.length);
     console.log(date);
 });
 
-bot.history("Wikipedia", 10, function(title, history){
+bot.history("Wikipedia", 10).complete(function (title, history) {
     console.log(title);
     console.log(history.length);
     
-    bot.revision(history[1].revid, function(title, text, date){
+    bot.revision(history[1].revid).complete(function (title, text, date) {
         console.log(title);
         console.log(text.length);
         console.log(date);
     });
 });
-
