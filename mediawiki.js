@@ -35,7 +35,7 @@ var MediaWiki = {};
     /** GLOBAL VARIABLES **/
 
     // module version number (used in User-Agent)
-    var version = "0.0.6";
+    var version = "0.0.7";
 
     // module home page (used in User-Agent)
     var homepage = "https://github.com/oliver-moran/mediawiki";
