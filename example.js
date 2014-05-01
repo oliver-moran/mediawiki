@@ -1,6 +1,5 @@
-#! /usr/local/bin/node
-
-var MediaWiki = require("./mediawiki");
+// uncomment in Node
+// var MediaWiki = require("./mediawiki");
 
 var user = "example";
 var password = "password";
