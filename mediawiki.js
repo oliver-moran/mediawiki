@@ -35,7 +35,7 @@ var MediaWiki = {};
     /** GLOBAL VARIABLES **/
 
     // module version number (used in User-Agent)
-    var version = "0.0.5";
+    var version = "0.0.6";
 
     // module home page (used in User-Agent)
     var homepage = "https://github.com/oliver-moran/mediawiki";
@@ -90,7 +90,7 @@ var MediaWiki = {};
         userAgent: (useXMLHttpRequest)
             ? "MediaWiki/" + version + "; " + window.navigator.userAgent + "; <" + homepage + ">"
             : "MediaWiki/" + version + "; Node/" + process.version + "; <" + homepage + ">",
-        byeline: "(bot edit)"
+        byeline: "(using the MediaWiki module for Node.js)"
     };
 
     /** GENERIC REQUEST FUNCTIONS **/
@@ -345,9 +345,10 @@ var MediaWiki = {};
         
         this.get(query, isPriority).complete(function (data) {
             var pages = Object.getOwnPropertyNames(data.query.pages);
+            var _this = this;
             pages.forEach(function (id) {
                 var page = data.query.pages[id];
-                promise.onComplete.call(this, page.title, page.revisions[0]["*"], new Date(page.revisions[0].timestamp));
+                promise.onComplete.call(_this, page.title, page.revisions[0]["*"], new Date(page.revisions[0].timestamp));
             });
         }).error(function (err) {
             promise.onError.call(this, err);
@@ -384,6 +385,42 @@ var MediaWiki = {};
     };
 
     // TODO: edit a page
+    
+    /**
+     * Edits a page on the wiki
+     * @param title the title of the page to edit
+     * @param text the text to replace the current content with
+     * @param summary an edit summary to leave (the bot's byeline will be appended after a space)
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
+     */
+    Bot.prototype.edit = function (title, text, summary, isPriority) {
+        var promise = new Promise();
+
+        this.get({ action: "query", prop: "info|revisions", intoken: "edit", titles: title }, isPriority).complete(function (data) {
+            //data.tokens.edittoken
+            var props = Object.getOwnPropertyNames(data.query.pages);
+            var _this = this;
+            props.forEach(function (prop) {
+                var token = data.query.pages[prop].edittoken;
+                var starttimestamp = data.query.pages[prop].starttimestamp;
+                var basetimestamp = data.query.pages[prop].revisions[0].timestamp;
+                _this.post({ action: "edit", title: title, text: text, summary: summary + " " + _this.settings.byeline, token: token, bot: true, basetimestamp: basetimestamp, starttimestamp: starttimestamp }, true).complete(function (data) {
+                    if (data.edit.result == "Success") {
+                        promise.onComplete.call(this, data.edit.title, data.edit.newrevid, new Date(data.edit.newtimestamp));
+                    } else {
+                        promise.onError.call(this, new Error(data.edit.result));
+                    }
+                }).error(function (err) {
+                    promise.onError.call(_this, err);
+                });
+            });
+        }).error(function (err) {
+            promise.onError.call(this, err);
+        });
+        
+        return promise;
+    };
+
     // TODO: get thes pages and categories in a category
 
     /** MODULE EXPORTS **/
