@@ -37,7 +37,7 @@ bot.history("Wikipedia", 10).complete(function (title, history) {
     
     // 'true' at the end of any request means that the requst will be prioritised
     // i.e. it will be put to the top of the request queue
-    bot.revision(history[1].revid).complete(function (title, text, date, true) {
+    bot.revision(history[1].revid, true).complete(function (title, text, date) {
         console.log(title);
         console.log(text.length);
         console.log(date);
