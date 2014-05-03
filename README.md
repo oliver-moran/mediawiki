@@ -5,9 +5,7 @@ This [Node.js](http://nodejs.org/) module is a JavaScript framework for the [Med
 
 The framework provides generic methods to make calls to the MediaWiki API. The framework also includes a collection of pre-baked functions that build on the generic methods to perform specific tasks (e.g. logging in, editing a page, and logging out).
 
-This collection is far from complete. So, if you can code, why not [fork this project](https://github.com/oliver-moran/mediawiki/fork) and work on one implementing of the [baked-in functions](https://github.com/oliver-moran/mediawiki/issues?labels=Functions&page=1&state=open) from the backlog?
-
-Or, if you have an idea for pre-baked, [open an issue requesting the feature](https://github.com/oliver-moran/mediawiki/issues).
+This collection is far from complete. So, if you can code, why not [fork this project](https://github.com/oliver-moran/mediawiki/fork) and work on implementing a [baked-in functions](https://github.com/oliver-moran/mediawiki/issues?labels=Functions&page=1&state=open) in the backlog? Or, if you have an idea for pre-baked function, why not [make a feature request](https://github.com/oliver-moran/mediawiki/issues)?
 
 In any case, have fun!
 
