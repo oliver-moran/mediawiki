@@ -35,22 +35,10 @@ var MediaWiki = {};
     /** GLOBAL VARIABLES **/
 
     // module version number (used in User-Agent)
-    var version = "0.0.7";
+    var version = "0.0.8";
 
     // module home page (used in User-Agent)
     var homepage = "https://github.com/oliver-moran/mediawiki";
-
-    // the edit token
-    var token = null;
-
-    // min next time before making next request
-    var future = 0;
-
-    // the process queue
-    var queue = [];
-
-    // is a request in process
-    var inProcess = false;
 
     /** CONSTRUCTOR AND SETTINGS **/
     
@@ -80,7 +68,9 @@ var MediaWiki = {};
             });
         }
 
-        future = (new Date()).getTime();
+        this._future = (new Date()).getTime();
+        this._queue = [];
+        this._inProcess = false;
     }
 
     // default settings
@@ -123,27 +113,27 @@ var MediaWiki = {};
     // queues requests, throttled by Bot.prototype.settings.rate
     function _queueRequest(args, method, isPriority, promise){
         if (isPriority === true) {
-            queue.unshift([args, method, promise])
+            this._queue.unshift([args, method, promise])
         } else {
-            queue.push([args, method, promise])
+            this._queue.push([args, method, promise])
         }
         _processQueue.call(this);
     }
 
     // attempt to process queued requests
     function _processQueue() {
-        if (queue.length == 0) return;
-        if (inProcess) return;
+        if (this._queue.length == 0) return;
+        if (this._inProcess) return;
 
-        inProcess = true; // we are go
+        this._inProcess = true; // we are go
 
         var now = (new Date()).getTime()
-        var delay = future - now;
+        var delay = this._future - now;
         if (delay < 0) delay = 0;
 
         var _this = this;
         setTimeout(function(){
-            _makeRequest.apply(_this, queue.shift());
+            _makeRequest.apply(_this, _this._queue.shift());
         }, delay);
     }
 
@@ -220,8 +210,8 @@ var MediaWiki = {};
         }
         promise.onComplete.call(this, data);
 
-        future = (new Date()).getTime() + this.settings.rate;
-        inProcess = false;
+        this._future = (new Date()).getTime() + this.settings.rate;
+        this._inProcess = false;
         _processQueue.call(this);
     }
 
