@@ -21,7 +21,7 @@ Install on Node using:
 To create a bot, create a new instance of the Bot class from the module:
 
     var MediaWiki = require("mediawiki");
-    var bot = new WikiMedia.Bot();
+    var bot = new MediaWiki.Bot();
 
 Now, you can use the generic wrapper method to make any API call, like this:
 
