@@ -1,6 +1,6 @@
 {
   "name": "mediawiki",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "A JavaScript framework for the MediaWiki API.",
   "main": "mediawiki.js",
   "keywords": [
