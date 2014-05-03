@@ -1,20 +1,20 @@
 MediaWiki
 =========
 
-This [Node.js](http://nodejs.org/) module is a JavaScript framework for the [MediaWiki API](https://www.mediawiki.org/wiki/API:Main_page). It can be used to create a bot to edit Wikipedia, for example.
+This [Node.js](http://nodejs.org/) module is a JavaScript framework for the [MediaWiki API](https://www.mediawiki.org/wiki/API:Main_page). An example use is to used to create a bot to edit Wikipedia. This bot could be run from your own computer or from a remote computer. To run a bot process in the cloud, you could consider using a service like [Cloud9](https://c9.io).
 
-To run a bot process in the cloud, you could consider using a service like [Cloud9](https://c9.io).
+The framework provides generic methods to make calls to the MediaWiki API. The framework also includes a collection of pre-baked functions that build on the generic methods to perform specific tasks (e.g. logging in, editing a page, and logging out).
 
-The framework provides wrapper frunctions for generic calls to the MediaWiki API. These wrappers can be used to write other functions that perform specific tasks (such as logging in, editing a page, getting back links, etc.). The framework already includes some of these.
+This collection is far from complete. So, if you can code, why not [fork this project](https://github.com/oliver-moran/mediawiki/fork) and work on one implementing of the [baked-in functions](https://github.com/oliver-moran/mediawiki/issues?labels=Functions&page=1&state=open) from the backlog?
 
-But let's grow the framework! Why not fork this repository and add your functions. Then, if you make a pull request, your new functions can be added in to the main branch.
+Or, if you have an idea for pre-baked, [open an issue requesting the feature](https://github.com/oliver-moran/mediawiki/issues).
 
-Have fun!
+In any case, have fun!
 
 Installation
 ------------
 
-Install on Node using:
+Install on Node.js using:
 
     npm install mediawiki
 
@@ -29,23 +29,23 @@ Now, you can use the generic wrapper method to make any API call, like this:
         console.log(response.query.userinfo);
     });
     
-Or you can use one of the in-built functions to make a call like this:
+Or, you can use one of the pre-baked functions to make the same call like this:
     
     bot.userinfo().complete(function (userinfo) {
         console.log(userinfo);
     });
     
-Multiple requests will be queued and executed in order.
+See the include example (`examples/example.js`) for further examples.
     
 Settings
 --------
 
 A bot can have the following settings:
 
- - `endpoint` The location of the MediaWiki API. Default: http://en.wikipedia.org:80/w/api.php
+ - `endpoint` The location of the target MediaWiki API. Default: "http://en.wikipedia.org:80/w/api.php".
  - `rate` The number of miliseconds to wait between making API requests. Default: 6 seconds.
- - `userAgent`: The user agent to use for the bot. Default: "MediaWiki/x.y.z; Node/x.y.z; <https://github.com/oliver-moran/mediawiki>"
- - `byeline`: A string to append to every edit summary. Default: "(using the MediaWiki module for Node.js)"
+ - `userAgent`: The user agent to use with the bot. Default: "MediaWiki/x.y.z; Node/x.y.z; <https://github.com/oliver-moran/mediawiki>".
+ - `byeline`: A string to append to every edit summary. Default: "(using the MediaWiki module for Node.js)".
 
 These can be set like this:
 
@@ -53,15 +53,15 @@ These can be set like this:
     bot.settings.endpoint = "https://en.wiktionary.org/w/api.php";
     bot.settings.rate = 60e3 / 10;
     bot.settings.userAgent = "ExampleBot <https://en.wiktionary.org/wiki/User:Example>";
-    bot.settings.byeline = "(bot edit)";
+    bot.settings.byeline = "(example bot edit)";
         
-Or with the constructor, like this:
+These can also be set with the constructor, like this:
     
     var bot = new WikiMedia.Bot({
         endpoint: "https://en.wiktionary.org/w/api.php",
         rate: 60e3 / 10,
         userAgent: "ExampleBot <https://en.wiktionary.org/wiki/User:Example>",
-        byeline: "(bot edit)"
+        byeline: "(example bot edit)"
     });
 
 If a settings isn't specified then the default setting will be used.
@@ -69,15 +69,15 @@ If a settings isn't specified then the default setting will be used.
 Methods
 -------
 
-The framework provides to generic wrapper methods. One for HTTP GET requests and another for HTTP POST requests. The signatures for these are identical:
+The framework provides two generic wrapper methods. One for HTTP GET requests and another for HTTP POST requests. The signatures for these are identical:
 
     bot.get(Object args[, Boolean isPriority]);
     bot.post(Object args[, Boolean isPriority]);
 
- - `args` A JavaScript Object corresponding to the arguments passed to a call in the [WikiMedia API](https://www.mediawiki.org/wiki/API:Main_page)
- - `isPriority` A Boolean (optional). If true, the request will be added to the front of the request queue (i.e. will be executed before all other queued requests). Default: false.
+ - `args` A JavaScript Object corresponding to the arguments to be passed to the [WikiMedia API](https://www.mediawiki.org/wiki/API:Main_page) call.
+ - `isPriority` (optional) A Boolean. If true, the request will be added to the front of the request queue (i.e. will be executed before all other queued requests). Default: false.
 
-Each of these methods return a [promise](https://en.wikipedia.org/wiki/Futures_and_promises). This promise is used to catch complete or error states, as follows:
+Both of these methods return a [promise](https://en.wikipedia.org/wiki/Futures_and_promises). This promise is used to set complete and error callbacks, as follows:
 
     var request = bot.get({ action: "query", meta: "userinfo" });
     
@@ -89,11 +89,7 @@ Each of these methods return a [promise](https://en.wikipedia.org/wiki/Futures_a
         console.log(err.toString());
     });
 
-For a generic wrapper method, the complete callback receives a single JavaScript Object containing the response from the API. The error callback receives a JavaScript Error object with basic information about what went wrong.
-
-You do not have to provide a complete or error callback for any request. The default behavior for the error callback is to throw an exception. The default behavior for the complete callback is to do nothing. In any case, if the error callback is made, the complete callback is never called.
-
-The complete and error callbacks can be set more succinctly like this:
+The complete and error callbacks can also be set succinctly like this:
 
     bot.get({ action: "query", meta: "userinfo" }).complete(function (response) {
         console.log(response.query.userinfo);
@@ -101,18 +97,20 @@ The complete and error callbacks can be set more succinctly like this:
         console.log(err.toString());
     });
 
-NB: For generic requests, the error callback is not called for application-level errors (e.g. if a user could not log in). It will only fire if the server could not be contacted or if the framework could not parse the response.
+The complete callback receives a single JavaScript Object containing the response from the API. The error callback receives a JavaScript Error object with basic information about what went wrong.
 
-Pre-baked methods
------------------
+You do not have to set the complete or error callback for any request. The default complete callback will do nothing. The default error callback will throw an exception. In all cases, if the error callback is called, the complete callback is never called.
 
-As well a providing a generic wrapper for the WikiMedia API, the module also provides a set of pre-baked calls (e.g. to log in, read a page, modify it, and log out).
+Pre-baked functions
+--------------------
 
-These methods and their complete callbacks takes specific arguments. The error callback for each is identical and receives a JavaScript Error object with basic information about what went wrong.
+As well a providing a generic methods for interacting with the WikiMedia API, the module also provides a set of pre-baked functions that automate specific tasks (e.g. to log in, edit a page, and log out).
 
-The last argument in each method is an optional Boolean. As with the generic wrapper methods, if this argument is true then the method will be added to the top of the request queue.
+The pre-baked functions and their complete callbacks all take specific arguments. However, the error callback for each is identical and receives a single JavaScript Error object with basic information about what went wrong. As well as responding to HTTP errors and parsing problems, the error callback for pre-baked functions also fires for specific errors conditions that vary per function. For example, the error callback for the log in function will fire if the wrong user password is supplied.
 
-The current list of pre-baked methods and the arugments the receive is as follows:
+The last argument in each method is an optional Boolean. As with the generic wrapper methods, if this argument is true then the method will be added to the top of the request queue. See the documentation for working with queued requests below for example usage of the `isPriority` argument.
+
+The current list of pre-baked functions and the arugments they receive is as follows:
 
     // log in to the wiki
     bot.login(String user, String password[, Boolean isPriority]).complete(function (String username) {
@@ -164,7 +162,7 @@ The current list of pre-baked methods and the arugments the receive is as follow
 Queued requsts
 --------------
 
-All requests an queued and executed in order. By default, there is a 6 second pause between requests. However, not that some pre-baked requests are comprised of a number of seperate request so may appear to take longer.
+All requests an queued and executed in order. By default, there is a 6-second pause between requests. However, note that some pre-baked functions are comprised of a number of seperate requests so may appear to take longer.
 
 The following will execute in sequence:
 
@@ -172,25 +170,27 @@ The following will execute in sequence:
     bot.edit("User:Example/sandbox", "Hello, World", "this is a test edit");
     bot.logout();
     
-There are times, when you will want to make sure that request inside a callback are priorities above request already on the queue. In that case, set `isPriority` to true for the nested requests and they will be executed before the already queued requests.
+There are times, when you will want to make sure request inside a callback are priorities above request already on the queue. In that case, set the `isPriority` argument to `true` for the nested requests and they will be executed before other (already) queued requests.
 
 The following will resore to the previous version of the page before logging out:
 
     bot.login("example", "password");
+
     bot.history("User:Example/sandbox", 2).complete(function (title, history) {
-        var id = history[1].revid;
+        var id = history[1].revid; // previous revision id
         bot.revision(id, true).complete(function (title, text, date) {
-            bot.edit(title, text, "restore to previous content", true);
+            bot.edit(title, text, "restore to previous revision", true);
         });
     });
+    
     bot.logout();
 
 Web-browser support
 -------------------
 
-The module is written so as to be also executable as a JavaScript library in a web browser. However, your are likely to encounter cross-domain security issues if the library is executed in a web browser on the different domain to the target MediaWiki installation.
+The module is written so as to be also executable as a JavaScript library in a web browser. However, your are likely to encounter cross-domain security issues if the library is executed in a web browser from a different domain to the target MediaWiki installation.
 
-See included example (`browser.html`) for sample use in a web-browser.
+See included example (`examples/browser.html`) for sample use in a web-browser.
 
 License
 -------

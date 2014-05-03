@@ -35,26 +35,41 @@ var MediaWiki = {};
     /** GLOBAL VARIABLES **/
 
     // module version number (used in User-Agent)
-    var version = "0.0.9";
+    var version = "0.0.10";
 
     // module home page (used in User-Agent)
     var homepage = "https://github.com/oliver-moran/mediawiki";
-
-    /** CONSTRUCTOR AND SETTINGS **/
     
-    function Promise(){
-    }
-    Promise.prototype.onComplete = function () { /* all is good */ };
-    Promise.prototype.onError = function (err) { throw err; };
+    
+    /** THE PROMISE PROTOTYPE **/
+    
+    function Promise(){ /* Constructor */ }
+    
+    // default complete and error callbacks (intended to be over-ridden)
+    Promise.prototype._onComplete = function () { /* All is good */ };
+    Promise.prototype._onError = function (err) { throw err; };
+
+    /**
+     * Sets the complete callback
+     * @param callback a Function to call on complete
+     */
     Promise.prototype.complete = function(callback){
-        this.onComplete = callback;
+        this._onComplete = callback;
         return this;
     };
+    
+    /**
+     * Sets the error callback
+     * @param callback a Function to call on error
+     */
     Promise.prototype.error = function(callback){
-        this.onError = callback;
+        this._onError = callback;
         return this;
     };
 
+    
+    /** THE BOT CONSTRUCTOR AND SETTINGS **/
+    
     /**
      * The Bot constructor
      * @param config an Object representing configuration settings
@@ -83,7 +98,8 @@ var MediaWiki = {};
         byeline: "(using the MediaWiki module for Node.js)"
     };
 
-    /** GENERIC REQUEST FUNCTIONS **/
+    
+    /** GENERIC REQUEST METHODS **/
 
     /**
      * Makes a GET request
@@ -162,7 +178,7 @@ var MediaWiki = {};
             if (!error && response.statusCode == 200) {
                 _processResponse.call(_this, body, promise);
             } else {
-                promise.onError.call(_this, new Error(response.statusCode));
+                promise._onError.call(_this, new Error(response.statusCode));
             }
         });
 
@@ -181,7 +197,7 @@ var MediaWiki = {};
                 if (request.status == 200) {
                     _processResponse.call(_this, request.responseText, promise);
                 } else {
-                    promise.onError.call(_this, new Error(request.status));
+                    promise._onError.call(_this, new Error(request.status));
                 }
             }
         }
@@ -206,9 +222,9 @@ var MediaWiki = {};
         try {
             data = JSON.parse(body);
         } catch (err) {
-            promise.onError.call(this, err);
+            promise._onError.call(this, err);
         }
-        promise.onComplete.call(this, data);
+        promise._onComplete.call(this, data);
 
         this._future = (new Date()).getTime() + this.settings.rate;
         this._inProcess = false;
@@ -216,7 +232,7 @@ var MediaWiki = {};
     }
 
     
-    /** SPECIFIC REQUEST FUNCTIONS **/
+    /** PRE-BAKED FUNCTIONS **/
 
     /**
      * Log in to the Wiki
@@ -230,25 +246,25 @@ var MediaWiki = {};
         this.post({ action: "login", lgname: username, lgpassword: password }, isPriority).complete(function (data) {
             switch (data.login.result) {
                 case "Success":
-                    promise.onComplete.call(this, data.login.lgusername);
+                    promise._onComplete.call(this, data.login.lgusername);
                     break;
                 case "NeedToken":
                     this.post({ action: "login", lgname: username, lgpassword: password, lgtoken: data.login.token }, true).complete(function (data) {
                         if (data.login.result == "Success") {
-                            promise.onComplete.call(this, data.login.lgusername);
+                            promise._onComplete.call(this, data.login.lgusername);
                         } else {
-                            promise.onError.call(this, new Error(data.login.result));
+                            promise._onError.call(this, new Error(data.login.result));
                         }
                     }).error(function (err) {
-                        promise.onError.call(this, err);
+                        promise._onError.call(this, err);
                     });
                     break;
                 default:
-                    promise.onError.call(this, new Error(data.login.result));
+                    promise._onError.call(this, new Error(data.login.result));
                     break;
             }
         }).error(function (err) {
-            promise.onError.call(this, err);
+            promise._onError.call(this, err);
         });
         
         return promise;
@@ -263,9 +279,9 @@ var MediaWiki = {};
         
         // post to MAKE SURE it always happens
         this.post({ action: "logout" }, isPriority).complete(function () {
-            promise.onComplete.call(this);
+            promise._onComplete.call(this);
         }).error(function (err) {
-            promise.onError.call(this, err);
+            promise._onError.call(this, err);
         });
         
         return promise;
@@ -279,9 +295,9 @@ var MediaWiki = {};
         var promise = new Promise();
         
         this.userinfo(isPriority).complete(function (userinfo) {
-            promise.onComplete.call(this, userinfo.name);
+            promise._onComplete.call(this, userinfo.name);
         }).error(function (err) {
-            promise.onError.call(this, err);
+            promise._onError.call(this, err);
         });
         
         return promise;
@@ -298,9 +314,9 @@ var MediaWiki = {};
         var promise = new Promise();
         
         this.get({ action: "query", meta: "userinfo" }, isPriority).complete(function (data) {
-            promise.onComplete.call(this, data.query.userinfo);
+            promise._onComplete.call(this, data.query.userinfo);
         }).error(function (err) {
-            promise.onError.call(this, err);
+            promise._onError.call(this, err);
         });
         
         return promise;
@@ -338,10 +354,10 @@ var MediaWiki = {};
             var _this = this;
             pages.forEach(function (id) {
                 var page = data.query.pages[id];
-                promise.onComplete.call(_this, page.title, page.revisions[0]["*"], new Date(page.revisions[0].timestamp));
+                promise._onComplete.call(_this, page.title, page.revisions[0]["*"], new Date(page.revisions[0].timestamp));
             });
         }).error(function (err) {
-            promise.onError.call(this, err);
+            promise._onError.call(this, err);
         });
         
         return promise;
@@ -365,10 +381,10 @@ var MediaWiki = {};
                     revision.timestamp = new Date(revision.timestamp);
                     history.push(revision);
                 });
-                promise.onComplete.call(this, page.title, history);
+                promise._onComplete.call(this, page.title, history);
             });
         }).error(function (err) {
-            promise.onError.call(this, err);
+            promise._onError.call(this, err);
         });
         
         return promise;
@@ -396,16 +412,16 @@ var MediaWiki = {};
                 var basetimestamp = data.query.pages[prop].revisions[0].timestamp;
                 _this.post({ action: "edit", title: title, text: text, summary: summary + " " + _this.settings.byeline, token: token, bot: true, basetimestamp: basetimestamp, starttimestamp: starttimestamp }, true).complete(function (data) {
                     if (data.edit.result == "Success") {
-                        promise.onComplete.call(this, data.edit.title, data.edit.newrevid, new Date(data.edit.newtimestamp));
+                        promise._onComplete.call(this, data.edit.title, data.edit.newrevid, new Date(data.edit.newtimestamp));
                     } else {
-                        promise.onError.call(this, new Error(data.edit.result));
+                        promise._onError.call(this, new Error(data.edit.result));
                     }
                 }).error(function (err) {
-                    promise.onError.call(_this, err);
+                    promise._onError.call(_this, err);
                 });
             });
         }).error(function (err) {
-            promise.onError.call(this, err);
+            promise._onError.call(this, err);
         });
         
         return promise;
