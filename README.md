@@ -151,10 +151,24 @@ The current list of pre-baked functions and the arugments they receive is as fol
     });
 
     // replace the contents of a page with text
-    bot.edit(String title, String text, summary[, Boolean isPriority]).complete(function (String title, Number revision, Date date) {
+    bot.edit(String title, String text, String summary[, Boolean isPriority]).complete(function (String title, Number revision, Date date) {
         console.log(title);
         console.log(revision);
         console.log(date.toString());
+    });
+    
+    // append a new section to a page
+    bot.add(String title, String heading, String text[, Boolean isPriority]).complete(function (String title, Number revision, Date date) {
+        console.log(title);
+        console.log(revision);
+        console.log(date.toString());
+    });
+
+    // list the members of a category
+    bot.category(String category).complete(function (String category, Array<String> pages, Array<String> subcategories) {
+        console.log(category);
+        console.log(pages.length);
+        console.log(subcategories.length);
     });
     
 Queued requsts
