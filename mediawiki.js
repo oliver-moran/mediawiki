@@ -381,20 +381,18 @@ var MediaWiki = {};
             var _this = this;
             this.get(args, isPriority).complete(function (data) {
                 var pages = Object.getOwnPropertyNames(data.query.pages);
-                pages.forEach(function (id) {
-                    var page = data.query.pages[id];
-                    page.revisions.forEach(function (revision) {
-                        revision.timestamp = new Date(revision.timestamp);
-                        if (history.length < count) history.push(revision);
-                    });
-                    if (data.continue && history.length < count) {
-                        c = data.continue.continue;
-                        rvc = data.continue.rvcontinue;
-                        next.call(_this, true);
-                    } else {
-                        promise._onComplete.call(this, page.title, history);
-                    }
+                var page = data.query.pages[pages[0]];
+                page.revisions.forEach(function (revision) {
+                    revision.timestamp = new Date(revision.timestamp);
+                    if (history.length < count) history.push(revision);
                 });
+                if (data.continue && history.length < count) {
+                    c = data.continue.continue;
+                    rvc = data.continue.rvcontinue;
+                    next.call(_this, true);
+                } else {
+                    promise._onComplete.call(this, page.title, history);
+                }
             }).error(function (err) {
                 promise._onError.call(this, err);
             });
@@ -403,7 +401,46 @@ var MediaWiki = {};
         return promise;
     };
 
-    // TODO: edit a page
+    /**
+     * Request the members of a category by category title
+     * @param category the title of the category
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
+     */
+    Bot.prototype.category = function (category, isPriority) {
+        var promise = new Promise();
+        
+        var c = "";
+        var cmc = "";
+        var pages = [];
+        var subcategories = [];
+        (function next(isPriority){
+            var args = { action: "query", list: "categorymembers", cmtitle: category, cmlimit:"max", cmsort: "sortkey", cmdir: "desc", continue:c};
+            if (c != "") args.cmcontinue = cmc;
+            var _this = this;
+            this.get(args, isPriority).complete(function (data) {
+                var members = data.query.categorymembers;
+                members.forEach(function (member) {
+                    if (member.ns == 14) {
+                        subcategories.push(member.title);
+                   } else {
+                        pages.push(member.title);
+                    }
+                });
+                if (data.continue) {
+                    c = data.continue.continue;
+                    cmc = data.continue.cmcontinue;
+                    next.call(_this, true);
+                } else {
+                    promise._onComplete.call(this, category, pages, subcategories);
+                }
+            }).error(function (err) {
+                promise._onError.call(this, err);
+            });
+        }).call(this, isPriority);
+        
+        return promise;
+    };
+
     
     /**
      * Edits a page on the wiki
@@ -413,8 +450,26 @@ var MediaWiki = {};
      * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
     Bot.prototype.edit = function (title, text, summary, isPriority) {
+        summary += " " + this.settings.byeline;
+        return _edit.call(this, title, null, text, summary, isPriority);
+    };
+    
+    /**
+     * Adds a section to a page on the wiki
+     * @param title the title of the page to edit
+     * @param heading the heading text for the new section
+     * @param body the body text of the new section
+     * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
+     */
+    Bot.prototype.add = function (title, heading, body, isPriority) {
+        return _edit.call(this, title, "new", body, heading, isPriority);
+    };
+    
+    // does the work of Bot.prototype.edit and Bot.prototype.add
+    // section should be null to replace the entire page or "new" to add a new section
+    function _edit(title, section, text, summary, isPriority) {
         var promise = new Promise();
-
+        
         this.get({ action: "query", prop: "info|revisions", intoken: "edit", titles: title }, isPriority).complete(function (data) {
             //data.tokens.edittoken
             var props = Object.getOwnPropertyNames(data.query.pages);
@@ -423,7 +478,9 @@ var MediaWiki = {};
                 var token = data.query.pages[prop].edittoken;
                 var starttimestamp = data.query.pages[prop].starttimestamp;
                 var basetimestamp = data.query.pages[prop].revisions[0].timestamp;
-                _this.post({ action: "edit", title: title, text: text, summary: summary + " " + _this.settings.byeline, token: token, bot: true, basetimestamp: basetimestamp, starttimestamp: starttimestamp }, true).complete(function (data) {
+                var args = { action: "edit", title: title, text: text, summary: summary, token: token, bot: true, basetimestamp: basetimestamp, starttimestamp: starttimestamp };
+                if (section != null) args.section = section;
+                _this.post(args, true).complete(function (data) {
                     if (data.edit.result == "Success") {
                         promise._onComplete.call(this, data.edit.title, data.edit.newrevid, new Date(data.edit.newtimestamp));
                     } else {
@@ -438,7 +495,7 @@ var MediaWiki = {};
         });
         
         return promise;
-    };
+    }
 
     // TODO: get thes pages and categories in a category
 

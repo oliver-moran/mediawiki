@@ -2,8 +2,8 @@
 
 var MediaWiki = require("../mediawiki");
 
-var user = "";
-var password = "";
+var user = "example";
+var password = "password";
 
 // instantiate a bot
 var bot = new MediaWiki.Bot();
@@ -22,7 +22,7 @@ bot.page("Wikipedia").complete(function (title, text, date) {
     console.log("The current revision of '" + title + "' has " + text.length + " characters");
 });
 
-bot.history("Wikipedia", 10).complete(function (title, history) {
+bot.history("Wikipedia", 1250).complete(function (title, history) {
     console.log("Received the history of last " + history.length + " revisions of '" + title + "'");
     
     // 'true' at the end of any request means that the requst will be prioritised
@@ -34,6 +34,14 @@ bot.history("Wikipedia", 10).complete(function (title, history) {
 
 bot.edit("Wikipedia:Sandbox", (new Date()).toString(), "replaced the page contents with the current time").complete(function (title, revision, date) {
     console.log("Replaced the content of '" + title + "' with the current date");
+});
+
+bot.add("Wikipedia_talk:Sandbox", "Current Date", (new Date()).toString() + " --~~~~").complete(function (title, revision, date) {
+    console.log("Added the the current date to '" + title + "'");
+});
+
+bot.category("Category:20th-century American novels").complete(function (category, pages, subcategories) {
+    console.log("'" + category + "' has " + pages.length + " members and " + subcategories.length + " subcategories.");
 });
 
 bot.logout().complete(function () {
