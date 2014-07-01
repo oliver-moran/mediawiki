@@ -372,20 +372,33 @@ var MediaWiki = {};
     Bot.prototype.history = function (title, count, isPriority) {
         var promise = new Promise();
         
-        this.get({ action: "query", prop: "revisions", titles: title, rvprop: "timestamp|user|ids|comment|size|tags", rvlimit: count }, isPriority).complete(function (data) {
-            var pages = Object.getOwnPropertyNames(data.query.pages);
-            pages.forEach(function (id) {
-                var page = data.query.pages[id];
-                var history = [];
-                page.revisions.forEach(function (revision) {
-                    revision.timestamp = new Date(revision.timestamp);
-                    history.push(revision);
+        var c = "";
+        var rvc = "";
+        var history = [];
+        (function next(isPriority){
+            var args = { action: "query", prop: "revisions", titles: title, rvprop: "timestamp|user|ids|comment|size|tags", rvlimit: count, continue:c};
+            if (c != "") args.rvcontinue = rvc;
+            var _this = this;
+            this.get(args, isPriority).complete(function (data) {
+                var pages = Object.getOwnPropertyNames(data.query.pages);
+                pages.forEach(function (id) {
+                    var page = data.query.pages[id];
+                    page.revisions.forEach(function (revision) {
+                        revision.timestamp = new Date(revision.timestamp);
+                        if (history.length < count) history.push(revision);
+                    });
+                    if (data.continue && history.length < count) {
+                        c = data.continue.continue;
+                        rvc = data.continue.rvcontinue;
+                        next.call(_this, true);
+                    } else {
+                        promise._onComplete.call(this, page.title, history);
+                    }
                 });
-                promise._onComplete.call(this, page.title, history);
+            }).error(function (err) {
+                promise._onError.call(this, err);
             });
-        }).error(function (err) {
-            promise._onError.call(this, err);
-        });
+        }).call(this, isPriority);
         
         return promise;
     };
