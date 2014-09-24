@@ -47,7 +47,7 @@ A bot can have the following settings:
 
 These can be set like this:
 
-    var bot = new WikiMedia.Bot();
+    var bot = new MediaWiki.Bot();
     bot.settings.endpoint = "https://en.wiktionary.org/w/api.php";
     bot.settings.rate = 60e3 / 10;
     bot.settings.userAgent = "ExampleBot <https://en.wiktionary.org/wiki/User:Example>";
@@ -55,7 +55,7 @@ These can be set like this:
         
 These can also be set with the constructor, like this:
     
-    var bot = new WikiMedia.Bot({
+    var bot = new MediaWiki.Bot({
         endpoint: "https://en.wiktionary.org/w/api.php",
         rate: 60e3 / 10,
         userAgent: "ExampleBot <https://en.wiktionary.org/wiki/User:Example>",
@@ -72,7 +72,7 @@ The framework provides two generic wrapper methods. One for HTTP GET requests an
     bot.get(Object args[, Boolean isPriority]);
     bot.post(Object args[, Boolean isPriority]);
 
- - `args` A JavaScript Object corresponding to the arguments to be passed to the [WikiMedia API](https://www.mediawiki.org/wiki/API:Main_page) call.
+ - `args` A JavaScript Object corresponding to the arguments to be passed to the [MediaWiki API](https://www.mediawiki.org/wiki/API:Main_page) call.
  - `isPriority` (optional) A Boolean. If true, the request will be added to the front of the request queue (i.e. will be executed before all other queued requests). Default: false.
 
 Both of these methods return a [promise](https://en.wikipedia.org/wiki/Futures_and_promises). This promise is used to set complete and error callbacks, as follows:
@@ -102,7 +102,7 @@ You do not have to set the complete or error callback for any request. The defau
 Pre-baked functions
 --------------------
 
-As well a providing a generic methods for interacting with the WikiMedia API, the module also provides a set of pre-baked functions that automate specific tasks (e.g. to log in, edit a page, and log out).
+As well a providing a generic methods for interacting with the MediaWiki API, the module also provides a set of pre-baked functions that automate specific tasks (e.g. to log in, edit a page, and log out).
 
 The pre-baked functions and their complete callbacks all take specific arguments. However, the error callback for each is identical and receives a single JavaScript Error object with basic information about what went wrong. As well as responding to HTTP errors and parsing problems, the error callback for pre-baked functions also fires for specific errors conditions that vary per function. For example, the error callback for the log in function will fire if the wrong user password is supplied.
 
