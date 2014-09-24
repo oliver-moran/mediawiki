@@ -202,7 +202,7 @@ Web-browser support
 
 The module is written so as to be also executable as a JavaScript library in a web browser. However, your are likely to encounter cross-domain security issues if the library is executed in a web browser from a different domain to the target MediaWiki installation.
 
-See included example (`examples/browser.html`) for sample use in a web-browser.
+See [included example](examples/browser.html) for sample use in a web-browser.
 
 License
 -------
