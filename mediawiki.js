@@ -477,8 +477,9 @@ var MediaWiki = {};
             props.forEach(function (prop) {
                 var token = data.query.pages[prop].edittoken;
                 var starttimestamp = data.query.pages[prop].starttimestamp;
-                var basetimestamp = data.query.pages[prop].revisions[0].timestamp;
-                var args = { action: "edit", title: title, text: text, summary: summary, token: token, bot: true, basetimestamp: basetimestamp, starttimestamp: starttimestamp };
+                var args = { action: "edit", title: title, text: text, summary: summary, token: token, bot: true, starttimestamp: starttimestamp };
+                if(data.query.pages[prop].revisions) args.basetimestamp=data.query.pages[prop].revisions[0].timestamp;
+                else args.createonly=true;
                 if (section != null) args.section = section;
                 _this.post(args, true).complete(function (data) {
                     if (data.edit.result == "Success") {
