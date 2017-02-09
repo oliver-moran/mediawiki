@@ -171,8 +171,8 @@ The current list of pre-baked functions and the arugments they receive is as fol
         console.log(subcategories.length);
     });
     
-Queued requsts
---------------
+Queued requests
+---------------
 
 All requests an queued and executed in order. By default, there is a 6-second pause between requests. However, note that some pre-baked functions are comprised of a number of seperate requests so may appear to take longer.
 
