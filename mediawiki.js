@@ -39,12 +39,12 @@ var MediaWiki = {};
 
     // module home page (used in User-Agent)
     var homepage = "https://github.com/oliver-moran/mediawiki";
-    
-    
+
+
     /** THE PROMISE PROTOTYPE **/
-    
+
     function Promise(){ /* Constructor */ }
-    
+
     // default complete and error callbacks (intended to be over-ridden)
     Promise.prototype._onComplete = function () { /* All is good */ };
     Promise.prototype._onError = function (err) { throw err; };
@@ -57,7 +57,7 @@ var MediaWiki = {};
         this._onComplete = callback;
         return this;
     };
-    
+
     /**
      * Sets the error callback
      * @param callback a Function to call on error
@@ -67,9 +67,9 @@ var MediaWiki = {};
         return this;
     };
 
-    
+
     /** THE BOT CONSTRUCTOR AND SETTINGS **/
-    
+
     /**
      * The Bot constructor
      * @param config an Object representing configuration settings
@@ -82,7 +82,6 @@ var MediaWiki = {};
                 _this.settings[prop] = config[prop];
             });
         }
-
         this._future = (new Date()).getTime();
         this._queue = [];
         this._inProcess = false;
@@ -98,7 +97,7 @@ var MediaWiki = {};
         byeline: "(using the MediaWiki module for Node.js)"
     };
 
-    
+
     /** GENERIC REQUEST METHODS **/
 
     /**
@@ -107,7 +106,7 @@ var MediaWiki = {};
      * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
     Bot.prototype.get = function (args, isPriority) {
-        return _request.call(this, args, isPriority, "GET");
+        return _request.call(this, args, false, isPriority, "GET");
     };
 
     /**
@@ -116,22 +115,22 @@ var MediaWiki = {};
      * @param isPriority (optional) should the request be added to the top of the request queue (defualt: false)
      */
     Bot.prototype.post = function (args, isPriority) {
-        return _request.call(this, args, isPriority, "POST");
+        return _request.call(this, args, false, isPriority, "POST");
     };
-    
+
     // does the work of Bot.prototype.get and Bot.prototype.post
-    function _request(args, isPriority, method) {
+    function _request(args, bodyOnly, isPriority, method) {
         var promise = new Promise();
-        _queueRequest.call(this, args, method, isPriority, promise);
+        _queueRequest.call(this, args, method, bodyOnly, isPriority, promise);
         return promise;
     }
 
     // queues requests, throttled by Bot.prototype.settings.rate
-    function _queueRequest(args, method, isPriority, promise){
+    function _queueRequest(args, method, bodyOnly, isPriority, promise){
         if (isPriority === true) {
-            this._queue.unshift([args, method, promise])
+            this._queue.unshift([args, method, bodyOnly, promise])
         } else {
-            this._queue.push([args, method, promise])
+            this._queue.push([args, method, bodyOnly, promise])
         }
         _processQueue.call(this);
     }
@@ -154,17 +153,16 @@ var MediaWiki = {};
     }
 
     // makes a request, regardless of type under Node
-    function _makeRequest(args, method, promise) {
+    function _makeRequest(args, method, bodyOnly, promise) {
         args.format = "json"; // we will always expect JSON
-
         if (useXMLHttpRequest) {
-            _makeXMLHttpRequestRequest.call(this, args, method, promise);
+            _makeXMLHttpRequestRequest.call(this, args, method, bodyOnly, promise);
             return;
         }
 
         var options = {
             uri: this.settings.endpoint,
-            qs: args,
+            qs: bodyOnly ? null : args,
             method: method,
             form: args,
             jar: true,
@@ -174,21 +172,21 @@ var MediaWiki = {};
         }
 
         var _this = this;
-        Request.get(options, function (error, response, body) {
+        Request[method === 'POST' ? 'post' : 'get'](options, function (error, response, body) {
             if (!error && response.statusCode == 200) {
                 _processResponse.call(_this, body, promise);
             } else {
-                promise._onError.call(_this, new Error(response.statusCode));
+                promise._onError.call(_this, new Error((!response && error) || response.statusCode));
             }
         });
 
     }
 
     // makes a request, regardless of type using XMLHttpRequest
-    function _makeXMLHttpRequestRequest(args, method, promise) {
+    function _makeXMLHttpRequestRequest(args, method, bodyOnly, promise) {
         var params = _serialize(args);
-        var uri = this.settings.endpoint + "?" + params;
-        
+        var uri = this.settings.endpoint + (bodyOnly ? '' :  "?" + params);
+
         var _this = this;
 
         var request = new XMLHttpRequest();
@@ -231,7 +229,7 @@ var MediaWiki = {};
         _processQueue.call(this);
     }
 
-    
+
     /** PRE-BAKED FUNCTIONS **/
 
     /**
@@ -242,31 +240,38 @@ var MediaWiki = {};
      */
     Bot.prototype.login = function (username, password, isPriority) {
         var promise = new Promise();
-        
-        this.post({ action: "login", lgname: username, lgpassword: password }, isPriority).complete(function (data) {
-            switch (data.login.result) {
-                case "Success":
-                    promise._onComplete.call(this, data.login.lgusername);
-                    break;
-                case "NeedToken":
-                    this.post({ action: "login", lgname: username, lgpassword: password, lgtoken: data.login.token }, true).complete(function (data) {
-                        if (data.login.result == "Success") {
-                            promise._onComplete.call(this, data.login.lgusername);
-                        } else {
-                            promise._onError.call(this, new Error(data.login.result));
-                        }
-                    }).error(function (err) {
-                        promise._onError.call(this, err);
-                    });
-                    break;
-                default:
-                    promise._onError.call(this, new Error(data.login.result));
-                    break;
-            }
+        var _this = this;
+
+        _request.call(this, {
+          action: 'query',
+          meta: 'tokens',
+          type: 'login',
+          lgpassword: password
+        }, true, isPriority, "POST").complete(function (data) {
+          _request.call(
+              _this,
+              {
+                  action: "login",
+                  lgname: username,
+                  lgpassword: password,
+                  lgtoken: data.query.tokens.logintoken
+              },
+              true,
+              true,
+              "POST"
+          ).complete(function (data) {
+              if (data.login.result == "Success") {
+                  promise._onComplete.call(this, data.login.lgusername);
+              } else {
+                  promise._onError.call(this, new Error(data.login.result));
+              }
+          }).error(function (err) {
+              promise._onError.call(this, err);
+          });
         }).error(function (err) {
             promise._onError.call(this, err);
         });
-        
+
         return promise;
     };
 
@@ -276,14 +281,14 @@ var MediaWiki = {};
      */
     Bot.prototype.logout = function (isPriority) {
         var promise = new Promise();
-        
+
         // post to MAKE SURE it always happens
         this.post({ action: "logout" }, isPriority).complete(function () {
             promise._onComplete.call(this);
         }).error(function (err) {
             promise._onError.call(this, err);
         });
-        
+
         return promise;
     };
 
@@ -293,13 +298,13 @@ var MediaWiki = {};
      */
     Bot.prototype.name = function (isPriority) {
         var promise = new Promise();
-        
+
         this.userinfo(isPriority).complete(function (userinfo) {
             promise._onComplete.call(this, userinfo.name);
         }).error(function (err) {
             promise._onError.call(this, err);
         });
-        
+
         return promise;
     };
 
@@ -312,16 +317,16 @@ var MediaWiki = {};
      */
     Bot.prototype.userinfo = function (isPriority) {
         var promise = new Promise();
-        
+
         this.get({ action: "query", meta: "userinfo" }, isPriority).complete(function (data) {
             promise._onComplete.call(this, data.query.userinfo);
         }).error(function (err) {
             promise._onError.call(this, err);
         });
-        
+
         return promise;
     };
-    
+
     /**
      * Request the content of page by title
      * @param title the title of the page
@@ -339,16 +344,16 @@ var MediaWiki = {};
     Bot.prototype.revision = function (id, isPriority) {
         return _page.call(this, { revids: id }, isPriority);
     };
-    
+
     // does the work of Bot.prototype.page and Bot.prototype.revision
     // and ensures both functions return the same things
     function _page(query, isPriority) {
         var promise = new Promise();
-        
+
         query.action = "query";
         query.prop = "revisions";
         query.rvprop = "timestamp|content";
-        
+
         this.get(query, isPriority).complete(function (data) {
             var pages = Object.getOwnPropertyNames(data.query.pages);
             var _this = this;
@@ -359,7 +364,7 @@ var MediaWiki = {};
         }).error(function (err) {
             promise._onError.call(this, err);
         });
-        
+
         return promise;
     }
 
@@ -371,7 +376,7 @@ var MediaWiki = {};
      */
     Bot.prototype.history = function (title, count, isPriority) {
         var promise = new Promise();
-        
+
         var c = "";
         var rvc = "";
         var history = [];
@@ -397,7 +402,7 @@ var MediaWiki = {};
                 promise._onError.call(this, err);
             });
         }).call(this, isPriority);
-        
+
         return promise;
     };
 
@@ -408,7 +413,7 @@ var MediaWiki = {};
      */
     Bot.prototype.category = function (category, isPriority) {
         var promise = new Promise();
-        
+
         var c = "";
         var cmc = "";
         var pages = [];
@@ -437,11 +442,11 @@ var MediaWiki = {};
                 promise._onError.call(this, err);
             });
         }).call(this, isPriority);
-        
+
         return promise;
     };
 
-    
+
     /**
      * Edits a page on the wiki
      * @param title the title of the page to edit
@@ -453,7 +458,7 @@ var MediaWiki = {};
         summary += " " + this.settings.byeline;
         return _edit.call(this, title, null, text, summary, isPriority);
     };
-    
+
     /**
      * Adds a section to a page on the wiki
      * @param title the title of the page to edit
@@ -464,28 +469,35 @@ var MediaWiki = {};
     Bot.prototype.add = function (title, heading, body, isPriority) {
         return _edit.call(this, title, "new", body, heading, isPriority);
     };
-    
+
     // does the work of Bot.prototype.edit and Bot.prototype.add
     // section should be null to replace the entire page or "new" to add a new section
     function _edit(title, section, text, summary, isPriority) {
         var promise = new Promise();
-        
-        this.get({ action: "query", prop: "info|revisions", intoken: "edit", titles: title }, isPriority).complete(function (data) {
-            //data.tokens.edittoken
+
+        this.get({ action: "query", prop: "info|revisions", titles: title }, isPriority).complete(function (data) {
             var props = Object.getOwnPropertyNames(data.query.pages);
             var _this = this;
             props.forEach(function (prop) {
-                var token = data.query.pages[prop].edittoken;
-                var starttimestamp = data.query.pages[prop].starttimestamp;
-                var basetimestamp = data.query.pages[prop].revisions[0].timestamp;
-                var args = { action: "edit", title: title, text: text, summary: summary, token: token, bot: true, basetimestamp: basetimestamp, starttimestamp: starttimestamp };
-                if (section != null) args.section = section;
-                _this.post(args, true).complete(function (data) {
-                    if (data.edit.result == "Success") {
-                        promise._onComplete.call(this, data.edit.title, data.edit.newrevid, new Date(data.edit.newtimestamp));
-                    } else {
-                        promise._onError.call(this, new Error(data.edit.result));
-                    }
+                _this.get({
+                  action: 'query',
+                  meta: 'tokens'
+                }, true).complete((response) => {
+                    var token = response.query.tokens.csrftoken;
+
+                    var starttimestamp = data.query.pages[prop].starttimestamp;
+                    var basetimestamp = data.query.pages[prop].revisions[0].timestamp;
+                    var args = { action: "edit", title: title, text: text, summary: summary, token: token, bot: true, basetimestamp: basetimestamp, starttimestamp: starttimestamp };
+                    if (section != null) args.section = section;
+                    _request.call(_this, args, true, true, "POST").complete(function (data) {
+                        if (data.edit.result == "Success") {
+                            promise._onComplete.call(this, data.edit.title, data.edit.newrevid, new Date(data.edit.newtimestamp));
+                        } else {
+                            promise._onError.call(this, new Error(data.edit.result));
+                        }
+                    }).error(function (err) {
+                        promise._onError.call(_this, err);
+                    });
                 }).error(function (err) {
                     promise._onError.call(_this, err);
                 });
@@ -493,7 +505,7 @@ var MediaWiki = {};
         }).error(function (err) {
             promise._onError.call(this, err);
         });
-        
+
         return promise;
     }
 
@@ -511,5 +523,5 @@ var MediaWiki = {};
             exports[prop] = MediaWiki[prop];
         });
     }
-    
+
 })(MediaWiki);
