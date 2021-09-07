@@ -47,7 +47,7 @@ A bot can have the following settings:
 
 These can be set like this:
 
-    var bot = new WikiMedia.Bot();
+    var bot = new MediaWiki.Bot();
     bot.settings.endpoint = "https://en.wiktionary.org/w/api.php";
     bot.settings.rate = 60e3 / 10;
     bot.settings.userAgent = "ExampleBot <https://en.wiktionary.org/wiki/User:Example>";
@@ -55,7 +55,7 @@ These can be set like this:
         
 These can also be set with the constructor, like this:
     
-    var bot = new WikiMedia.Bot({
+    var bot = new MediaWiki.Bot({
         endpoint: "https://en.wiktionary.org/w/api.php",
         rate: 60e3 / 10,
         userAgent: "ExampleBot <https://en.wiktionary.org/wiki/User:Example>",
